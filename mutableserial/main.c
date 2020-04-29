@@ -17,6 +17,63 @@
 
 #define PORT_ERROR -1
 
+void ReadPots( int fd );
+void ReadCVs( int fd );
+
+
+
+
+// commands
+enum
+{
+    kReadPot,
+    kReadCV,
+    kReadGate,
+    kBypass,
+    kCalibrate
+};
+
+
+// read args
+enum
+{
+    kPositionPot,
+    kDensityPot,
+    kSizePot,
+    kSizeCV,
+    kPitchPot,
+    kPitchCV,
+    kBlendPot,
+    kBlendCV,
+    kTexturePot,
+    kTextureCV
+};
+
+#define kNumPots 6
+#define kNumCVs  4
+
+static const int s_pot_indices[] = { kPositionPot, kDensityPot, kSizePot, kPitchPot, kBlendPot, kTexturePot }; 
+static const int s_cv_indices[]  = { kSizeCV, kPitchCV, kBlendCV, kTextureCV }; 
+
+
+
+// read arg names
+static const char* s_adc_names[] = 
+{ 
+    "Position pot-CV",  // 0
+    "Density pot-CV",   // 1
+    "Size pot",         // 2
+    "Size CV",          // 3
+    "Pitch pot",        // 4
+    "V/Oct CV",         // 5
+    "Blend pot",        // 6
+    "Blend CV",         // 7
+    "Texture pot",      // 8
+    "Texture CV"        // 9
+};
+
+
+
 
 int main(int argc, const char * argv[]) {
     
@@ -60,33 +117,74 @@ int main(int argc, const char * argv[]) {
     if( fd == -1 )
         return PORT_ERROR;
     
-    uint8_t txByte = 0;
-    uint8_t rxByte = 0;
-    
+    static int lastChar = '1';
     while( 1 )
     {
-        int toggle = 0;
-//        int i = 0;
-        for( int i = 0; i < 10; i++ )
-        {
-//            txByte = (3 << 5) | toggle;//i;
-            txByte = i; // read command, arg is the ADC we are reading
-            ssize_t result = write( fd, &txByte, 1 );
-            if( result < 0 )
-                printf( "write error[%d]: %ld\n", i, result );
-            
-            // read result
-            result = read( fd, &rxByte, 1 );
-            if( result < 0 )
-                printf( "read error[%d]: %ld\n", i, result );
-            else
-                printf( "read[%d]: %d\n", i, rxByte );
-            
-            toggle = !toggle;
-        }
+        int inputChar = getchar();
         
-        sleep( 5 );
+        // check for last command command {enter}
+        if( inputChar == '\n' )
+            inputChar = lastChar;
+        
+        if( inputChar == '1' )
+            ReadPots( fd );
+        else if( inputChar == '2' )
+            ReadCVs( fd );
+        
+        lastChar = inputChar;
         printf( "\n" );
     }
     return 0;
+}
+
+
+void ReadPots( int fd )
+{
+    if( fd == -1 )
+        return;
+
+    uint8_t txByte = 0;
+    uint8_t rxByte = 0;
+
+    for( int i = 0; i < kNumPots; i++ )
+    {
+        int index = s_pot_indices[i];
+        txByte = index; // read command, arg is the ADC we are reading
+        ssize_t result = write( fd, &txByte, 1 );
+        if( result < 0 )
+            printf( "write error[%d]: %ld\n", index, result );
+        
+        // read result
+        result = read( fd, &rxByte, 1 );
+        if( result < 0 )
+            printf( "read error[%d]: %s - %ld\n", index, s_adc_names[index], result );
+        else
+            printf( "%s: %d\n", s_adc_names[index], rxByte );
+    }
+}
+
+
+void ReadCVs( int fd )
+{
+    if( fd == -1 )
+        return;
+    
+    uint8_t txByte = 0;
+    uint8_t rxByte = 0;
+    
+    for( int i = 0; i < kNumCVs; i++ )
+    {
+        int index = s_cv_indices[i];
+        txByte = index; // read command, arg is the ADC we are reading
+        ssize_t result = write( fd, &txByte, 1 );
+        if( result < 0 )
+            printf( "write error[%d]: %ld\n", index, result );
+        
+        // read result
+        result = read( fd, &rxByte, 1 );
+        if( result < 0 )
+            printf( "read error[%d]: %s - %ld\n", index, s_adc_names[index], result );
+        else
+            printf( "%s: %d\n", s_adc_names[index], rxByte );
+    }
 }
