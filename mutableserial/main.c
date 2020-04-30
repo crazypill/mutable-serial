@@ -19,7 +19,7 @@
 
 void ReadPots( int fd );
 void ReadCVs( int fd );
-
+void DoCalibrateLoop( int fd );
 
 
 
@@ -73,6 +73,13 @@ static const char* s_adc_names[] =
 };
 
 
+void buffer_input_flush()
+{
+    int c;
+     // This will eat up all other characters
+    while( (c = getchar()) != EOF && c != '\n' )
+        ;
+}
 
 
 int main(int argc, const char * argv[]) {
@@ -121,10 +128,17 @@ int main(int argc, const char * argv[]) {
     while( 1 )
     {
         int inputChar = getchar();
-        
+        if( inputChar == 'c' )
+        {
+            DoCalibrateLoop( fd );
+            inputChar = 0;
+        }
+            
         // check for last command command {enter}
         if( inputChar == '\n' )
             inputChar = lastChar;
+        else
+            buffer_input_flush();
         
         if( inputChar == '1' )
             ReadPots( fd );
@@ -187,4 +201,40 @@ void ReadCVs( int fd )
         else
             printf( "%s: %d\n", s_adc_names[index], rxByte );
     }
+}
+
+
+void DoCalibrateLoop( int fd )
+{
+    printf( "Entering calibration mode\n" );
+    
+    uint8_t txByte = kCalibrate << 5;
+    ssize_t result = write( fd, &txByte, 1 );
+    if( result < 0 )
+        printf( "DoCalibrateLoop: write error: %ld\n", result );
+    
+    printf( "Hold a C2 note (1V) to v/oct input, then press enter...\n" );
+    getchar();
+    buffer_input_flush();
+    
+    // put device into C1 calibration mode...
+    txByte = (kCalibrate << 5) | 1;
+    result = write( fd, &txByte, 1 );
+    if( result < 0 )
+        printf( "DoCalibrateLoop: write error: %ld\n", result );
+    else
+        printf( "DoCalibrateLoop: success!\n" );
+    
+
+    printf( "Hold a C4 note (3V) to v/oct input, then press enter...\n" );
+    getchar();
+    buffer_input_flush();
+    
+    // put device into C3 calibration mode...
+    txByte = (kCalibrate << 5) | 2;
+    result = write( fd, &txByte, 1 );
+    if( result < 0 )
+        printf( "DoCalibrateLoop: write error: %ld\n", result );
+    else
+        printf( "DoCalibrateLoop: success!\n" );
 }
